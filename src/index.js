@@ -28,7 +28,6 @@ import { exchangeTokenAuthCode, refreshToken, makePkce } from "./oauth.js";
  * SC Like — elecktro1337 (t.me/elecktro1337)
  */
 
-const APP_NAME = "SC Like";
 const APP_AUTHOR = "elecktro1337 (t.me/elecktro1337)";
 
 const DATA_DIR = resolveRel("data");
@@ -39,10 +38,11 @@ const NOT_FOUND_PATH = resolveRel("data", "not_found.txt");
 const STATE_SEARCH_PATH = resolveRel("data", "state_search.json");
 const STATE_LIKES_PATH = resolveRel("data", "state_likes.json");
 const ERRORS_LOG_PATH = resolveRel("data", "errors.log");
+const STATS_PATH = resolveRel("data", "stats.json");
 const TRACKS_TXT = resolveRel("tracks.txt");
 
-const LIKE_DELAY_MS = 2500; // безопасно медленно (антифрод у SC часто агрессивный)
-const SEARCH_DELAY_MS = 200; // минимальная пауза между поисками (чтобы не молотить API)
+const LIKE_DELAY_MS = 2500;
+const SEARCH_DELAY_MS = 200;
 const SEARCH_LIMIT = 30;
 
 const log = makeLogger({ errorsLogPath: ERRORS_LOG_PATH });
@@ -54,12 +54,8 @@ function clearConsole() {
 function header() {
 	const art = figlet.textSync("SC Like", { horizontalLayout: "default" });
 	console.log(chalk.green(art));
-	console.log(chalk.gray(`Автор: ${APP_AUTHOR}`));
-	console.log(chalk.gray("Назначение: поиск треков из tracks.txt и проставление лайков с возобновлением.\n"));
-	console.log(chalk.gray("Кратко:"));
-	console.log(chalk.gray("1) Подготовь tracks.txt (Artist - Title)"));
-	console.log(chalk.gray("2) Запусти программу, выбери конфиг, выбери кэш/перепарс"));
-	console.log(chalk.gray("3) Программа найдет треки, затем начнет лайкать\n"));
+	console.log(chalk.gray("Версия 1.0.4\n"));
+	console.log(chalk.gray("Автор: Nikita Shikhovtsev (elecktro1337)\n"));
 }
 
 function nowSec() {
@@ -71,9 +67,45 @@ function safeId(x) {
 	return Number.isFinite(n) ? n : null;
 }
 
+function initStats() {
+	const base = readJson(STATS_PATH, null);
+	if (base) return base;
+	const fresh = {
+		updated_at: null,
+		search: {
+			total_lines: 0,
+			parsed_lines: 0,
+			found: 0,
+			not_found: 0,
+			errors: 0,
+			started_from: 0,
+			finished: false,
+			stopped_by_429: false,
+			last_index: 0
+		},
+		likes: {
+			total_found: 0,
+			processed: 0,
+			liked: 0,
+			already_liked: 0,
+			skipped_by_state: 0,
+			errors: 0,
+			finished: false,
+			stopped_by_429: false,
+			last_index: 0
+		}
+	};
+	writeJson(STATS_PATH, fresh);
+	return fresh;
+}
+
+function saveStats(stats) {
+	stats.updated_at = new Date().toISOString();
+	writeJson(STATS_PATH, stats);
+}
+
 async function selectOrCreateConfig() {
 	ensureDir(CONFIGS_DIR);
-	
 	const configs = listJsonFiles(CONFIGS_DIR);
 	
 	const { mode } = await inquirer.prompt([
@@ -159,7 +191,6 @@ async function getValidTokens(cfg) {
 		return out;
 	}
 	
-	// Полный OAuth (Authorization Code + PKCE)
 	const redirect = new URL(cfg.redirect_uri);
 	const listenHost = redirect.hostname;
 	const listenPort = Number(redirect.port || 80);
@@ -246,33 +277,31 @@ function initFiles() {
 	ensureDir(DATA_DIR);
 	ensureDir(CONFIGS_DIR);
 	
-	if (!exists(FOUND_PATH)) {
-		writeJson(FOUND_PATH, { generated_at: null, tracks_hash: null, found: [] });
-	}
-	if (!exists(STATE_SEARCH_PATH)) {
-		writeJson(STATE_SEARCH_PATH, { tracks_hash: null, next_index: 0, total: 0, updated_at: null });
-	}
-	if (!exists(STATE_LIKES_PATH)) {
-		writeJson(STATE_LIKES_PATH, { liked_ids: {}, updated_at: null });
-	}
-	if (!exists(NOT_FOUND_PATH)) {
-		appendText(NOT_FOUND_PATH, "# not found (Artist - Title) — appended");
-	}
+	if (!exists(FOUND_PATH)) writeJson(FOUND_PATH, { generated_at: null, tracks_hash: null, found: [] });
+	if (!exists(STATE_SEARCH_PATH)) writeJson(STATE_SEARCH_PATH, { tracks_hash: null, next_index: 0, total: 0, updated_at: null });
+	if (!exists(STATE_LIKES_PATH)) writeJson(STATE_LIKES_PATH, { liked_ids: {}, updated_at: null });
+	if (!exists(NOT_FOUND_PATH)) appendText(NOT_FOUND_PATH, "# not found (Artist - Title) — appended");
+	if (!exists(STATS_PATH)) initStats();
 }
 
-async function chooseCacheMode(tracksHash) {
-	const hasCache = exists(FOUND_PATH);
+async function chooseSearchMode(tracksHash) {
 	const cached = readJson(FOUND_PATH, null);
-	const cacheValid = hasCache && cached?.tracks_hash === tracksHash && Array.isArray(cached?.found);
+	const cacheValid = cached?.tracks_hash === tracksHash && Array.isArray(cached?.found) && cached.found.length > 0;
+	
+	const searchState = readJson(STATE_SEARCH_PATH, null);
+	const canResume =
+		searchState?.tracks_hash === tracksHash &&
+		Number.isFinite(searchState?.next_index) &&
+		searchState.next_index > 0 &&
+		searchState.next_index < (searchState.total || Number.MAX_SAFE_INTEGER);
 	
 	const choices = [];
-	if (cacheValid && cached.found.length > 0) {
-		choices.push({ name: `Использовать кэш найденных (${cached.found.length} треков)`, value: "use_cache" });
-	}
-	choices.push({ name: "Заново обработать tracks.txt (с возобновлением при падении)", value: "reparse" });
+	if (cacheValid) choices.push({ name: `Использовать кэш найденных для лайкинга (${cached.found.length})`, value: "use_cache" });
+	if (canResume) choices.push({ name: `Продолжить обработку с места остановки (строка ${searchState.next_index + 1})`, value: "resume" });
+	choices.push({ name: "Обработать файл заново с нуля (сбросить кэш/прогресс поиска)", value: "fresh" });
 	
 	const { mode } = await inquirer.prompt([
-		{ type: "list", name: "mode", message: "Поиск треков:", choices }
+		{ type: "list", name: "mode", message: "Режим обработки tracks.txt:", choices }
 	]);
 	
 	return mode;
@@ -282,40 +311,68 @@ function loadSearchState() {
 	return readJson(STATE_SEARCH_PATH, { tracks_hash: null, next_index: 0, total: 0, updated_at: null });
 }
 
+function resetSearchProgress(tracksHash, totalLines) {
+	// state_search: начать с нуля
+	writeJson(STATE_SEARCH_PATH, {
+		tracks_hash: tracksHash,
+		next_index: 0,
+		total: totalLines,
+		updated_at: new Date().toISOString()
+	});
+	
+	// found cache: очистить
+	writeJson(FOUND_PATH, {
+		generated_at: new Date().toISOString(),
+		tracks_hash: tracksHash,
+		found: []
+	});
+	
+	// not_found: очищать не обязательно (он накопительный), но можно — если хочешь:
+	// fs.writeFileSync(NOT_FOUND_PATH, "# not found ...\n", "utf8");
+}
+
 function saveSearchState(st) {
 	st.updated_at = new Date().toISOString();
 	writeJson(STATE_SEARCH_PATH, st);
 }
-
 function loadFoundCache() {
 	return readJson(FOUND_PATH, { generated_at: null, tracks_hash: null, found: [] });
 }
-
 function saveFoundCache(cache) {
 	cache.generated_at = new Date().toISOString();
 	writeJson(FOUND_PATH, cache);
 }
-
 function loadLikesState() {
 	return readJson(STATE_LIKES_PATH, { liked_ids: {}, updated_at: null });
 }
-
 function saveLikesState(st) {
 	st.updated_at = new Date().toISOString();
 	writeJson(STATE_LIKES_PATH, st);
 }
 
-async function parseTracks(sc, tracksLines, tracksHash) {
+// главное: безопасное логирование при активном прогрессбаре
+function withBarLog(bar, fn) {
+	if (bar) bar.stop();
+	fn();
+	if (bar) bar.start();
+}
+
+async function parseTracks(sc, tracksLines, tracksHash, stats) {
 	const spinner = ora({ text: "Подготовка поиска...", spinner: "dots" }).start();
+	
+	stats.search.total_lines = tracksLines.length;
+	stats.search.parsed_lines = tracksLines.length; // по факту — строк в файле (не все могут распарситься)
+	stats.search.errors = 0;
+	stats.search.stopped_by_429 = false;
+	stats.search.finished = false;
+	saveStats(stats);
 	
 	const searchState = loadSearchState();
 	let startIndex = 0;
 	
-	// если это тот же tracks.txt, продолжаем
 	if (searchState.tracks_hash === tracksHash && Number.isFinite(searchState.next_index)) {
 		startIndex = searchState.next_index;
 	} else {
-		// новый список — сбрасываем прогресс поиска
 		searchState.tracks_hash = tracksHash;
 		searchState.next_index = 0;
 		searchState.total = tracksLines.length;
@@ -331,6 +388,8 @@ async function parseTracks(sc, tracksLines, tracksHash) {
 	
 	spinner.stop();
 	log.info(`Поиск: старт с позиции ${startIndex + 1}/${tracksLines.length}`);
+	stats.search.started_from = startIndex + 1;
+	saveStats(stats);
 	
 	const bar = new cliProgress.SingleBar(
 		{
@@ -351,6 +410,10 @@ async function parseTracks(sc, tracksLines, tracksHash) {
 		const parsed = parseLine(line);
 		if (!parsed) {
 			appendText(NOT_FOUND_PATH, line);
+			stats.search.not_found += 1;
+			stats.search.last_index = i + 1;
+			saveStats(stats);
+			
 			searchState.next_index = i + 1;
 			saveSearchState(searchState);
 			continue;
@@ -363,10 +426,12 @@ async function parseTracks(sc, tracksLines, tracksHash) {
 			
 			if (!results.length) {
 				appendText(NOT_FOUND_PATH, line);
+				stats.search.not_found += 1;
 			} else {
 				const best = pickBestMatch(parsed, results);
 				if (!best) {
 					appendText(NOT_FOUND_PATH, line);
+					stats.search.not_found += 1;
 				} else {
 					const id = safeId(best.id);
 					if (id) {
@@ -380,47 +445,75 @@ async function parseTracks(sc, tracksLines, tracksHash) {
 								user: { username: best.user?.username || "" }
 							}
 						});
-						// сохраняем инкрементально (чтобы при падении не потерять)
 						saveFoundCache(cache);
+						stats.search.found += 1;
 					} else {
 						appendText(NOT_FOUND_PATH, line);
+						stats.search.not_found += 1;
 					}
 				}
 			}
 			
-			// прогресс поиска
 			searchState.next_index = i + 1;
 			searchState.total = tracksLines.length;
 			saveSearchState(searchState);
+			
+			stats.search.last_index = i + 1;
+			saveStats(stats);
 			
 			await sleep(SEARCH_DELAY_MS);
 		} catch (e) {
 			const status = e?.response?.status;
 			const payload = e?.response?.data;
 			
+			stats.search.errors += 1;
+			stats.search.last_index = i + 1;
+			saveStats(stats);
+			
+			// фикс склейки: остановить бар -> лог -> запустить бар обратно
+			bar.stop();
 			log.error(`Ошибка при поиске на строке ${i + 1}: ${line}`, payload || e?.message);
 			
-			// Если внезапно прилетает 429 на поиске — стоп, сохранили всё что есть
 			if (status === 429) {
 				log.warn("Получен 429 при поиске. Останавливаю работу с сохранением прогресса.");
-				bar.stop();
+				stats.search.stopped_by_429 = true;
+				saveStats(stats);
 				return { stoppedBy429: true, cache: loadFoundCache() };
 			}
 			
-			// иначе продолжаем (можно сделать иначе, но так практичнее)
+			bar.start(tracksLines.length, i + 1, { line: "" });
 			await sleep(1000);
 		}
 	}
 	
 	bar.stop();
+	stats.search.finished = true;
+	saveStats(stats);
+	
 	log.info("Поиск завершен.");
 	return { stoppedBy429: false, cache: loadFoundCache() };
 }
 
-async function likeFlow(sc, foundCache) {
+async function likeFlow(sc, foundCache, stats) {
 	const likesState = loadLikesState();
 	
-	log.info(`Лайки: к обработке ${foundCache.found.length} треков.`);
+	stats.likes.total_found = foundCache.found.length;
+	stats.likes.processed = 0;
+	stats.likes.liked = 0;
+	stats.likes.already_liked = 0;
+	stats.likes.skipped_by_state = 0;
+	stats.likes.errors = 0;
+	stats.likes.finished = false;
+	stats.likes.stopped_by_429 = false;
+	saveStats(stats);
+	
+	log.info(
+		`Лайки: найдено ${stats.likes.total_found}, ` +
+		`обработано ${stats.likes.processed}, ` +
+		`не найдено ${stats.search.not_found}, ` +
+		`ошибок ${stats.likes.errors + stats.search.errors}, ` +
+		`уже обработано (state) ${Object.keys(likesState.liked_ids || {}).length}.`
+	);
 	
 	const bar = new cliProgress.SingleBar(
 		{
@@ -443,62 +536,90 @@ async function likeFlow(sc, foundCache) {
 		
 		if (!id) continue;
 		
-		// локальный кеш лайков: пропускаем, если уже обработано
-		if (likesState.liked_ids[String(id)]) continue;
+		// state skip
+		if (likesState.liked_ids[String(id)]) {
+			stats.likes.skipped_by_state += 1;
+			stats.likes.processed += 1;
+			stats.likes.last_index = i + 1;
+			saveStats(stats);
+			continue;
+		}
 		
 		try {
-			// best-effort проверка на лайк ДО лайка
-			// если null — неизвестно, идём дальше
 			const liked = await sc.isTrackLikedBestEffort(id);
 			if (liked === true) {
 				likesState.liked_ids[String(id)] = { at: new Date().toISOString(), status: "already-liked" };
 				saveLikesState(likesState);
+				
+				stats.likes.already_liked += 1;
+				stats.likes.processed += 1;
+				stats.likes.last_index = i + 1;
+				saveStats(stats);
 				continue;
 			}
 			
-			// ставим лайк
 			await sc.likeTrack(id);
 			
 			likesState.liked_ids[String(id)] = { at: new Date().toISOString(), status: "liked" };
 			saveLikesState(likesState);
+			
+			stats.likes.liked += 1;
+			stats.likes.processed += 1;
+			stats.likes.last_index = i + 1;
+			saveStats(stats);
 			
 			await sleep(LIKE_DELAY_MS);
 		} catch (e) {
 			const status = e?.response?.status;
 			const payload = e?.response?.data;
 			
-			// если 429 — немедленно стоп
+			stats.likes.errors += 1;
+			stats.likes.last_index = i + 1;
+			saveStats(stats);
+			
+			bar.stop();
+			
 			if (status === 429) {
 				log.error("Получен 429 при лайке. Немедленная остановка. Прогресс сохранен.", payload || e?.message);
-				bar.stop();
+				stats.likes.stopped_by_429 = true;
+				saveStats(stats);
 				return { stoppedBy429: true };
 			}
 			
-			// “already liked” иногда может приходить не через check, а как 409/400
 			if (status === 409) {
 				likesState.liked_ids[String(id)] = { at: new Date().toISOString(), status: "already-liked" };
 				saveLikesState(likesState);
+				
+				stats.likes.already_liked += 1;
+				stats.likes.processed += 1;
+				saveStats(stats);
+				
+				bar.start(foundCache.found.length, i + 1, { title: "" });
 				continue;
 			}
 			
 			log.error(`Ошибка лайка (id=${id}, title="${title}")`, payload || e?.message);
 			
-			// сохраняем и продолжаем (кроме 429)
+			bar.start(foundCache.found.length, i + 1, { title: "" });
 			await sleep(1200);
 		}
 	}
 	
 	bar.stop();
+	stats.likes.finished = true;
+	saveStats(stats);
+	
 	log.info("Лайкинг завершен.");
 	return { stoppedBy429: false };
 }
 
 async function main() {
 	initFiles();
+	const stats = initStats();
+	
 	clearConsole();
 	header();
 	
-	// базовые проверки
 	if (!exists(TRACKS_TXT)) {
 		log.error(`Файл tracks.txt не найден: ${TRACKS_TXT}`);
 		process.exit(1);
@@ -519,15 +640,32 @@ async function main() {
 	const tracksHash = sha256File(TRACKS_TXT);
 	const lines = readTextLines(TRACKS_TXT);
 	
-	const mode = await chooseCacheMode(tracksHash);
+	// сброс счётчиков поиска/лайков (но оставляем накопленный state в файлах)
+	stats.search.found = 0;
+	stats.search.not_found = 0;
+	stats.search.errors = 0;
+	
+	const mode = await chooseSearchMode(tracksHash);
 	
 	let foundCache = loadFoundCache();
 	
-	// 1) Парсинг (всегда перед лайком; но можно использовать кэш)
 	if (mode === "use_cache") {
-		log.info("Использую кэш найденных треков.");
+		log.info("Использую кэш найденных треков (поиск не выполняется).");
+		// stats для поиска не трогаем сильно, но можно обновить found из кэша:
+		stats.search.total_lines = lines.length;
+		stats.search.parsed_lines = lines.length;
+		stats.search.found = foundCache.found.length;
+		saveStats(stats);
 	} else {
-		const res = await parseTracks(sc, lines, tracksHash);
+		if (mode === "fresh") {
+			log.warn("Сбрасываю прогресс поиска и кэш найденных. Начинаю с нуля.");
+			resetSearchProgress(tracksHash, lines.length);
+		} else {
+			log.info("Продолжаю обработку с места остановки.");
+		}
+		
+		// Обработка (fresh или resume)
+		const res = await parseTracks(sc, lines, tracksHash, stats);
 		foundCache = res.cache;
 		
 		if (res.stoppedBy429) {
@@ -536,8 +674,10 @@ async function main() {
 		}
 	}
 	
-	// 2) Лайкинг
-	const likeRes = await likeFlow(sc, foundCache);
+	stats.search.found = foundCache.found.length;
+	saveStats(stats);
+	
+	const likeRes = await likeFlow(sc, foundCache, stats);
 	
 	if (likeRes.stoppedBy429) {
 		log.warn("Работа остановлена из-за 429 на этапе лайков. Запусти позже — продолжит с места.");

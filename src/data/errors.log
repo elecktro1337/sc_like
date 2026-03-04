@@ -1,1 +1,197 @@
 19:19:43 [ E ] Файл tracks.txt не найден: C:\Users\eleck\Downloads\sc_like\src\tracks.txt
+19:30:28 [ E ] Ошибка при поиске на строке 1054: S.L.A.B. - Pimpin
+socket hang up
+---
+19:34:08 [ E ] Получен 429 при лайке. Немедленная остановка. Прогресс сохранен.
+{
+  "code": 429,
+  "message": "",
+  "link": "https://developers.soundcloud.com/docs/api/rate-limits#errors",
+  "status": "429 - Too Many Requests",
+  "errors": [],
+  "error": null
+}
+---
+19:36:01 [ E ] Получен 429 при лайке. Немедленная остановка. Прогресс сохранен.
+{
+  "code": 429,
+  "message": "",
+  "link": "https://developers.soundcloud.com/docs/api/rate-limits#errors",
+  "status": "429 - Too Many Requests",
+  "errors": [],
+  "error": null
+}
+---
+19:40:48 [ E ] Получен 429 при лайке. Немедленная остановка. Прогресс сохранен.
+{
+  "code": 429,
+  "message": "",
+  "link": "https://developers.soundcloud.com/docs/api/rate-limits#errors",
+  "status": "429 - Too Many Requests",
+  "errors": [],
+  "error": null
+}
+---
+19:41:11 [ E ] Получен 429 при лайке. Немедленная остановка. Прогресс сохранен.
+{
+  "code": 429,
+  "message": "",
+  "link": "https://developers.soundcloud.com/docs/api/rate-limits#errors",
+  "status": "429 - Too Many Requests",
+  "errors": [],
+  "error": null
+}
+---
+20:02:52 [ E ] Получен 429 при лайке. Немедленная остановка. Прогресс сохранен.
+{
+  "code": 429,
+  "message": "",
+  "link": "https://developers.soundcloud.com/docs/api/rate-limits#errors",
+  "status": "429 - Too Many Requests",
+  "errors": [],
+  "error": null
+}
+---
+20:04:58 [ E ] Получен 429 при лайке. Немедленная остановка. Прогресс сохранен.
+{
+  "code": 429,
+  "message": "",
+  "link": "https://developers.soundcloud.com/docs/api/rate-limits#errors",
+  "status": "429 - Too Many Requests",
+  "errors": [],
+  "error": null
+}
+---
+20:10:28 [ E ] Ошибка при поиске на строке 132: V $ X V PRiNCE, BOLLO - Strip
+socket hang up
+---
+20:21:36 [ E ] Ошибка при поиске на строке 1180: Markul, Dyce - Dali
+{
+  "code": 401,
+  "message": "",
+  "link": "https://developers.soundcloud.com/docs/api/explorer/open-api",
+  "status": "401 - Unauthorized",
+  "errors": [],
+  "error": null
+}
+---
+20:21:37 [ E ] Ошибка при поиске на строке 1181: Desaparecidos - Stereo Love
+{
+  "code": 401,
+  "message": "",
+  "link": "https://developers.soundcloud.com/docs/api/explorer/open-api",
+  "status": "401 - Unauthorized",
+  "errors": [],
+  "error": null
+}
+---
+20:21:38 [ E ] Ошибка при поиске на строке 1182: Yanix - Mamacita
+{
+  "code": 401,
+  "message": "",
+  "link": "https://developers.soundcloud.com/docs/api/explorer/open-api",
+  "status": "401 - Unauthorized",
+  "errors": [],
+  "error": null
+}
+---
+20:21:39 [ E ] Ошибка при поиске на строке 1183: Lil Baby, Gunna - Drip Too Hard
+{
+  "code": 401,
+  "message": "",
+  "link": "https://developers.soundcloud.com/docs/api/explorer/open-api",
+  "status": "401 - Unauthorized",
+  "errors": [],
+  "error": null
+}
+---
+20:21:40 [ E ] Ошибка при поиске на строке 1184: The Limba, MORGENSHTERN - Известным
+{
+  "code": 401,
+  "message": "",
+  "link": "https://developers.soundcloud.com/docs/api/explorer/open-api",
+  "status": "401 - Unauthorized",
+  "errors": [],
+  "error": null
+}
+---
+20:21:41 [ E ] Ошибка при поиске на строке 1185: ЕГОР КРИД - PUSSY BOY
+{
+  "code": 401,
+  "message": "",
+  "link": "https://developers.soundcloud.com/docs/api/explorer/open-api",
+  "status": "401 - Unauthorized",
+  "errors": [],
+  "error": null
+}
+---
+20:21:43 [ E ] Ошибка при поиске на строке 1186: 104, Скриптонит, LUCAVEROS - Проблемы
+{
+  "code": 401,
+  "message": "",
+  "link": "https://developers.soundcloud.com/docs/api/explorer/open-api",
+  "status": "401 - Unauthorized",
+  "errors": [],
+  "error": null
+}
+---
+20:21:44 [ E ] Ошибка при поиске на строке 1187: $uicideboy$ - 122 Days
+{
+  "code": 401,
+  "message": "",
+  "link": "https://developers.soundcloud.com/docs/api/explorer/open-api",
+  "status": "401 - Unauthorized",
+  "errors": [],
+  "error": null
+}
+---
+20:21:45 [ E ] Ошибка при поиске на строке 1188: Rae Sremmurd - No Type
+{
+  "code": 401,
+  "message": "",
+  "link": "https://developers.soundcloud.com/docs/api/explorer/open-api",
+  "status": "401 - Unauthorized",
+  "errors": [],
+  "error": null
+}
+---
+20:21:46 [ E ] Ошибка при поиске на строке 1189: KnownAim - SUNSET
+{
+  "code": 401,
+  "message": "",
+  "link": "https://developers.soundcloud.com/docs/api/explorer/open-api",
+  "status": "401 - Unauthorized",
+  "errors": [],
+  "error": null
+}
+---
+20:21:47 [ E ] Ошибка при поиске на строке 1190: T-Fest - Как дела
+{
+  "code": 401,
+  "message": "",
+  "link": "https://developers.soundcloud.com/docs/api/explorer/open-api",
+  "status": "401 - Unauthorized",
+  "errors": [],
+  "error": null
+}
+---
+20:24:24 [ E ] Получен 429 при лайке. Немедленная остановка. Прогресс сохранен.
+{
+  "code": 429,
+  "message": "",
+  "link": "https://developers.soundcloud.com/docs/api/rate-limits#errors",
+  "status": "429 - Too Many Requests",
+  "errors": [],
+  "error": null
+}
+---
+20:24:42 [ E ] Получен 429 при лайке. Немедленная остановка. Прогресс сохранен.
+{
+  "code": 429,
+  "message": "",
+  "link": "https://developers.soundcloud.com/docs/api/rate-limits#errors",
+  "status": "429 - Too Many Requests",
+  "errors": [],
+  "error": null
+}
+---
