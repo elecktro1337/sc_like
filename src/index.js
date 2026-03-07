@@ -41,16 +41,7 @@ const ERRORS_LOG_PATH = resolveRel("data", "errors.log");
 const STATS_PATH = resolveRel("data", "stats.json");
 const TRACKS_TXT = resolveRel("tracks.txt");
 
-const MIN_DELAY_MS = 1200;
-const MAX_DELAY_MS = 15 * 60 * 1000;
-
-// экспоненциальное смещение к коротким задержкам
-const getLikeDelayMs = () => {
-	const u = Math.random();
-	const k = 6; // чем больше, тем сильнее тянет к коротким
-	const t = 1 - Math.exp(-k * u);
-	return Math.floor(MIN_DELAY_MS + t * (MAX_DELAY_MS - MIN_DELAY_MS));
-};
+const LIKE_DELAY_MS = 1200;
 
 const SEARCH_DELAY_MS = 200;
 const SEARCH_LIMIT = 30;
@@ -578,7 +569,7 @@ async function likeFlow(sc, foundCache, stats) {
 			stats.likes.last_index = i + 1;
 			saveStats(stats);
 			
-			await sleep(getLikeDelayMs());
+			await sleep(LIKE_DELAY_MS);
 		} catch (e) {
 			const status = e?.response?.status;
 			const payload = e?.response?.data;
